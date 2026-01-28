@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StatBot Pro - Autonomous CSV Data Analyst</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-section, .query-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+        }
+        .upload-section.active, .query-section.active {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        input[type="file"], input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .result.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .chart {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .chart img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            color: #007bff;
+        }
+        .example-questions {
+            margin-top: 15px;
+        }
+        .example-questions button {
+            background-color: #6c757d;
+            font-size: 14px;
+            padding: 8px 16px;
+            margin: 3px;
+        }
+        .file-info {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 StatBot Pro</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+            Autonomous CSV Data Analyst Agent - Upload your data and ask questions in natural language
+        </p>
+
+        <div class="upload-section" id="uploadSection">
+            <h3>📁 Step 1: Upload Your CSV File</h3>
+            <input type="file" id="csvFile" accept=".csv" />
+            <button onclick="uploadCSV()">Upload CSV</button>
+            <div id="fileInfo" class="file-info" style="display: none;"></div>
+        </div>
+
+        <div class="query-section" id="querySection">
+            <h3>💬 Step 2: Ask Your Question</h3>
+            <input type="text" id="questionInput" placeholder="e.g., What is the correlation between sales and marketing spend?" disabled />
+            <button onclick="askQuestion()" id="askBtn" disabled>Ask Question</button>
+            
+            <div class="example-questions">
+                <p><strong>Example questions:</strong></p>
+                <button onclick="setQuestion('What is the correlation between sales and marketing spend?')">Correlation Analysis</button>
+                <button onclick="setQuestion('Show me the sales trend by region')">Sales Trends</button>
+                <button onclick="setQuestion('What are the summary statistics?')">Summary Stats</button>
+                <button onclick="setQuestion('Plot the distribution of sales')">Distribution Plot</button>
+                <button onclick="setQuestion('Which region has the highest average sales?')">Regional Analysis</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <p>🤖 StatBot is analyzing your data...</p>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let csvUploaded = false;
+
+        async function uploadCSV() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a CSV file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload_csv', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    csvUploaded = true;
+                    document.getElementById('uploadSection').classList.add('active');
+                    document.getElementById('querySection').classList.add('active');
+                    document.getElementById('questionInput').disabled = false;
+                    document.getElementById('askBtn').disabled = false;
+                    
+                    const fileInfo = document.getElementById('fileInfo');
+                    fileInfo.style.display = 'block';
+                    fileInfo.innerHTML = `
+                        <strong>✅ File uploaded successfully!</strong><br>
+                        📊 Shape: ${result.shape[0]} rows × ${result.shape[1]} columns<br>
+                        📋 Columns: ${result.columns.join(', ')}<br>
+                        🔍 Sample data loaded and ready for analysis
+                    `;
+                    
+                    showResult('CSV uploaded successfully! You can now ask questions about your data.', 'success');
+                } else {
+                    showResult(`Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Error uploading file: ${error.message}`, 'error');
+            }
+        }
+
+        async function askQuestion() {
+            const question = document.getElementById('questionInput').value.trim();
+            
+            if (!question) {
+                alert('Please enter a question');
+                return;
+            }
+
+            if (!csvUploaded) {
+                alert('Please upload a CSV file first');
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').innerHTML = '';
+
+            try {
+                const response = await fetch('/ask_question', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ question: question })
+                });
+
+                const result = await response.json();
+                document.getElementById('loading').style.display = 'none';
+
+                if (response.ok) {
+                    let resultHTML = `<strong>Question:</strong> ${question}<br><br>`;
+                    resultHTML += `<strong>Answer:</strong><br>${result.answer}`;
+                    
+                    if (result.chart_url) {
+                        resultHTML += `<div class="chart">
+                            <h4>📊 Generated Visualization:</h4>
+                            <img src="${result.chart_url}" alt="Generated Chart" />
+                        </div>`;
+                    }
+                    
+                    showResult(resultHTML, 'success');
+                } else {
+                    showResult(`Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                showResult(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function setQuestion(question) {
+            document.getElementById('questionInput').value = question;
+        }
+
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = message;
+            resultDiv.className = `result ${type}`;
+        }
+
+        // Allow Enter key to submit question
+        document.getElementById('questionInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                askQuestion();
+            }
+        });
+    </script>
+</body>
+</html>

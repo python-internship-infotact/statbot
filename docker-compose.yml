@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  statbot-pro:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./workspace:/app/workspace
+      - ./static:/app/static
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    tmpfs:
+      - /tmp
+    user: "1000:1000"
