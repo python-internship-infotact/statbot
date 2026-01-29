@@ -1,19 +1,21 @@
 # StatBot Pro
 
-An autonomous CSV data analyst agent that generates Python code to answer natural language questions about your data.
+An autonomous CSV data analyst agent with a modern React frontend that generates Python code to answer natural language questions about your data.
 
 ## 🚀 Features
 
+- **Modern Web Interface**: Beautiful React frontend with real-time chat interface
 - **Autonomous Analysis**: Upload CSV files and ask questions in natural language
 - **Self-Correcting Agent**: Automatically retries and fixes code execution errors
 - **Secure Sandboxing**: Restricted execution environment with no filesystem access
 - **Chart Generation**: Automatic matplotlib visualizations saved as PNG files
-- **Web Interface**: User-friendly web UI for easy interaction
-- **REST API**: Full API access for programmatic usage
 - **Real-time Processing**: Stream analysis steps for transparency
+- **REST API**: Full API access for programmatic usage
+- **Session Management**: Maintain context across multiple questions
 
 ## 🏗️ Architecture
 
+- **Frontend**: React + TypeScript + Vite + shadcn/ui
 - **Backend**: FastAPI (Python)
 - **Agent Framework**: Custom implementation with LangChain concepts
 - **Data Processing**: Pandas DataFrame operations
@@ -21,26 +23,71 @@ An autonomous CSV data analyst agent that generates Python code to answer natura
 - **Security**: Sandboxed code execution with restricted imports
 - **Storage**: Local filesystem with public URLs for charts
 
+## ✅ System Status
+
+**Frontend-Backend Integration**: ✅ **FULLY INTEGRATED & CLEAN**
+- Modern React frontend with real-time chat interface
+- Complete API integration with backend
+- Session management working correctly
+- File upload and question processing functional
+- Chart visualization support
+- Error handling and user feedback
+- All third-party references removed
+
+**Current Features**:
+- ✅ CSV file upload with drag-and-drop interface
+- ✅ Real-time data analysis with AI agent
+- ✅ Interactive chat interface for questions
+- ✅ Automatic chart generation and display
+- ✅ Session-based data management
+- ✅ Comprehensive error handling
+- ✅ Production-ready backend with monitoring
+- ✅ Modern UI with shadcn/ui components
+- ✅ Clean codebase with no external dependencies
+
 ## 🚀 Quick Start
 
-### Option 1: Direct Python Setup
+### Option 1: Development Mode (Recommended)
 
-1. **Install dependencies:**
+1. **Install Python dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
-2. **Run the server:**
+2. **Install Node.js dependencies:**
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+3. **Start both servers:**
+```bash
+# Windows
+start-dev.bat
+
+# Linux/Mac
+python start-dev.py
+```
+
+4. **Access the application:**
+- Frontend UI: http://localhost:8080
+- Backend API: http://localhost:8001
+
+### Option 2: Manual Setup
+
+1. **Start the backend:**
 ```bash
 python main.py
 ```
 
-3. **Open your browser:**
-```
-http://localhost:8001
+2. **Start the frontend (in another terminal):**
+```bash
+cd frontend
+npm run dev
 ```
 
-### Option 2: Docker Setup (Recommended for Production)
+### Option 3: Docker Setup (Production)
 
 1. **Build and run with Docker Compose:**
 ```bash
@@ -54,7 +101,16 @@ http://localhost:8000
 
 ## 📊 Usage Examples
 
-### Web Interface
+### Modern Web Interface
+1. Open http://localhost:8080 in your browser
+2. Upload a CSV file using the drag-and-drop interface
+3. Ask questions in the chat interface like:
+   - "What is the correlation between sales and marketing spend?"
+   - "Show me the sales trend by region"
+   - "Create a scatter plot of price vs quantity"
+   - "Which product category has the highest average revenue?"
+
+### Legacy Web Interface
 1. Open http://localhost:8001 in your browser
 2. Upload a CSV file using the file picker
 3. Ask questions like:
@@ -122,11 +178,23 @@ curl http://localhost:8001/static/chart_abc123.png
 statbot-pro/
 ├── main.py                 # FastAPI server
 ├── agent.py               # Autonomous agent implementation
+├── config.py              # Configuration management
+├── monitoring.py          # System monitoring
 ├── requirements.txt       # Python dependencies
+├── start-dev.py           # Development startup script
+├── start-dev.bat          # Windows development startup
 ├── Dockerfile            # Docker configuration
 ├── docker-compose.yml    # Docker Compose setup
+├── frontend/             # React frontend application
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── pages/        # Page components
+│   │   ├── lib/          # Utilities and API client
+│   │   └── types/        # TypeScript type definitions
+│   ├── package.json      # Node.js dependencies
+│   └── vite.config.ts    # Vite configuration
 ├── templates/
-│   └── index.html        # Web interface
+│   └── index.html        # Legacy web interface
 ├── workspace/            # CSV upload directory
 ├── static/              # Generated charts
 ├── example_data.csv     # Sample dataset

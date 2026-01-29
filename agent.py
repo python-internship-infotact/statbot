@@ -23,7 +23,12 @@ import traceback
 import re
 import ast
 import signal
-import resource
+try:
+    import resource
+    HAS_RESOURCE = True
+except ImportError:
+    # resource module not available on Windows
+    HAS_RESOURCE = False
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 import logging
@@ -131,6 +136,10 @@ class SecureExecutor:
     
     def _setup_resource_limits(self):
         """Set up system resource limits"""
+        if not HAS_RESOURCE:
+            logger.warning("Resource module not available (Windows). Resource limits disabled.")
+            return
+            
         try:
             # Set memory limit (if supported on the platform)
             if hasattr(resource, 'RLIMIT_AS'):
@@ -621,6 +630,159 @@ for col, info in outlier_summary.items():
         logger.info(f"Question intent analysis: {intent}")
         return intent
     
+    def _generate_specific_query_code(self, question: str, schema_info: Dict[str, Any]) -> Optional[str]:
+        """
+        Generate code for specific filtering and aggregation queries.
+        
+        Args:
+            question: Natural language question
+            schema_info: DataFrame schema information
+            
+        Returns:
+            Generated Python code or None if not a specific query
+        """
+        logger.info("=== ENTERING _generate_specific_query_code ===")
+        question_lower = question.lower()
+        available_cols = schema_info.get('columns', [])
+        
+        logger.info(f"Checking specific query patterns for: '{question_lower}'")
+        
+        # Pattern: "total [column] in [value]" or "sum of [column] in [value]"
+        import re
+        
+        # Match patterns like "total marketing_spend in south"
+        total_pattern = r'total\s+(\w+)\s+in\s+(\w+)'
+        sum_pattern = r'sum\s+(?:of\s+)?(\w+)\s+in\s+(\w+)'
+        
+        match = re.search(total_pattern, question_lower) or re.search(sum_pattern, question_lower)
+        
+        if match:
+            target_column = match.group(1)
+            filter_value = match.group(2)
+            
+            logger.info(f"Specific query detected: column='{target_column}', filter='{filter_value}'")
+            
+            # Find the actual column name (case-insensitive match)
+            actual_column = None
+            for col in available_cols:
+                if col.lower() == target_column:
+                    actual_column = col
+                    break
+            
+            if not actual_column:
+                logger.warning(f"Column '{target_column}' not found in available columns: {available_cols}")
+                return None
+            
+            # Find the filter column (likely categorical)
+            categorical_cols = schema_info.get('categorical_columns', [])
+            filter_column = None
+            
+            # Look for a column that might contain the filter value
+            for col in categorical_cols:
+                # This is a simple heuristic - in practice, you might want to check actual data
+                if 'region' in col.lower() or 'category' in col.lower() or 'type' in col.lower():
+                    filter_column = col
+                    break
+            
+            if not filter_column and categorical_cols:
+                filter_column = categorical_cols[0]  # Use first categorical column as fallback
+            
+            if filter_column:
+                logger.info(f"Generating specific query code: {actual_column} in {filter_column} = {filter_value}")
+                
+                # Generate the correct filtering and aggregation code - simple string concatenation
+                generated_code = f"""
+# Specific Query: Total {actual_column} in {filter_value}
+print('Available columns:', {available_cols})
+print('Looking for {actual_column} in {filter_column} = {filter_value}')
+
+# Check unique values in the filter column
+print('\\nUnique values in {filter_column}:', df["{filter_column}"].unique())
+
+# Find the correct case for the filter value
+filter_values = df['{filter_column}'].unique()
+target_value = None
+for val in filter_values:
+    if str(val).lower() == '{filter_value}':
+        target_value = val
+        break
+
+if target_value is not None:
+    # Filter and sum
+    filtered_data = df[df['{filter_column}'] == target_value]
+    total_value = filtered_data['{actual_column}'].sum()
+    
+    print('\\nTotal {actual_column} in', target_value, ':', total_value)
+    
+    # Show breakdown
+    print('\\nBreakdown of {actual_column} in', target_value, ':')
+    print(filtered_data[['{filter_column}', '{actual_column}']])
+    
+    # Show summary
+    print('\\nSummary:')
+    print('- Number of records:', len(filtered_data))
+    print('- Total {actual_column}:', total_value)
+    print('- Average {actual_column}:', total_value/len(filtered_data))
+else:
+    print('\\nValue "{filter_value}" not found in {filter_column}')
+    print('Available values:', list(filter_values))
+"""
+                logger.info(f"Generated code preview: {generated_code[:200]}...")
+                return generated_code
+            else:
+                logger.warning(f"No suitable filter column found in categorical columns: {categorical_cols}")
+        
+        # Pattern: "[column] by [grouping_column]" or "group [column] by [grouping_column]"
+        group_pattern = r'(?:group\s+)?(\w+)\s+by\s+(\w+)'
+        group_match = re.search(group_pattern, question_lower)
+        
+        if group_match:
+            target_column = group_match.group(1)
+            group_column = group_match.group(2)
+            
+            logger.info(f"Group query detected: column='{target_column}', group_by='{group_column}'")
+            
+            # Find actual column names
+            actual_target = None
+            actual_group = None
+            
+            for col in available_cols:
+                if col.lower() == target_column:
+                    actual_target = col
+                if col.lower() == group_column:
+                    actual_group = col
+            
+            if actual_target and actual_group:
+                logger.info(f"Generating group query code: {actual_target} by {actual_group}")
+                return f"""
+# Group Analysis: {actual_target} by {actual_group}
+print('Grouping {actual_target} by {actual_group}')
+
+# Group and aggregate
+grouped_data = df.groupby('{actual_group}')['{actual_target}'].agg(['sum', 'mean', 'count'])
+print('\\nGrouped Results:')
+print(grouped_data)
+
+# Find highest and lowest
+highest_sum = grouped_data['sum'].idxmax()
+lowest_sum = grouped_data['sum'].idxmin()
+
+print(f'\\nHighest total {actual_target}: {{highest_sum}} ({{grouped_data.loc[highest_sum, "sum"]:,.2f}})')
+print(f'Lowest total {actual_target}: {{lowest_sum}} ({{grouped_data.loc[lowest_sum, "sum"]:,.2f}})')
+
+# Create visualization
+grouped_data['sum'].plot(kind='bar', title=f'{actual_target} by {actual_group}')
+plt.ylabel(f'Total {actual_target}')
+plt.xlabel(actual_group)
+plt.xticks(rotation=45)
+plt.tight_layout()
+"""
+            else:
+                logger.warning(f"Columns not found: target='{target_column}' -> {actual_target}, group='{group_column}' -> {actual_group}")
+        
+        logger.info("No specific query pattern matched, using general analysis")
+        return None
+    
     def _generate_analysis_code(self, question: str, schema_info: Dict[str, Any], intent: Dict[str, Any]) -> str:
         """
         Generate Python code based on question analysis and data schema.
@@ -633,6 +795,16 @@ for col, info in outlier_summary.items():
         Returns:
             Generated Python code
         """
+        logger.info(f"Generating analysis code for question: '{question}'")
+        
+        # Check for specific filtering and aggregation patterns first
+        specific_code = self._generate_specific_query_code(question, schema_info)
+        logger.info(f"Specific query code result: {specific_code is not None}")
+        if specific_code:
+            logger.info("Using specific query code")
+            return specific_code
+        
+        logger.info("Using general analysis code")
         code_parts = [self.code_templates['basic_info']]
         
         # Add missing data analysis for complex questions

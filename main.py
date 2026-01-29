@@ -153,67 +153,70 @@ templates = Jinja2Templates(directory="templates")
 
 # Global state management
 class ApplicationState:
-    """Thread-safe application state management"""
+    """Simplified application state management"""
     def __init__(self):
         self.sessions: Dict[str, Dict[str, Any]] = {}
         self.request_counts: Dict[str, List[datetime]] = {}
         self.agent = StatBotAgent(max_retries=config.MAX_RETRIES, timeout=config.EXECUTION_TIMEOUT)
-        self._lock = asyncio.Lock()
     
     async def get_session(self, session_id: str) -> Dict[str, Any]:
         """Get or create a session"""
-        async with self._lock:
-            if session_id not in self.sessions:
-                self.sessions[session_id] = {
-                    'dataframe': None,
-                    'filename': None,
-                    'upload_time': None,
-                    'question_count': 0,
-                    'last_activity': datetime.now()
-                }
-            return self.sessions[session_id]
+        logger.info(f"Getting session {session_id}, current sessions: {list(self.sessions.keys())}")
+        if session_id not in self.sessions:
+            logger.info(f"Creating new session {session_id}")
+            self.sessions[session_id] = {
+                'dataframe': None,
+                'filename': None,
+                'upload_time': None,
+                'question_count': 0,
+                'last_activity': datetime.now()
+            }
+        else:
+            logger.info(f"Found existing session {session_id}")
+        
+        session = self.sessions[session_id]
+        logger.info(f"Session {session_id} data keys: {list(session.keys())}")
+        logger.info(f"Session {session_id} has dataframe: {session.get('dataframe') is not None}")
+        return session
     
     async def update_session(self, session_id: str, updates: Dict[str, Any]):
         """Update session data"""
-        async with self._lock:
-            session = await self.get_session(session_id)
-            session.update(updates)
-            session['last_activity'] = datetime.now()
+        session = await self.get_session(session_id)
+        session.update(updates)
+        session['last_activity'] = datetime.now()
     
     async def cleanup_old_sessions(self):
         """Remove old inactive sessions"""
-        async with self._lock:
-            cutoff_time = datetime.now() - timedelta(hours=24)
-            expired_sessions = [
-                sid for sid, session in self.sessions.items()
-                if session['last_activity'] < cutoff_time
-            ]
-            for sid in expired_sessions:
-                del self.sessions[sid]
-                logger.info(f"Cleaned up expired session: {sid}")
+        cutoff_time = datetime.now() - timedelta(hours=24)
+        expired_sessions = [
+            sid for sid, session in self.sessions.items()
+            if session['last_activity'] < cutoff_time
+        ]
+        for sid in expired_sessions:
+            del self.sessions[sid]
+            logger.info(f"Cleaned up expired session: {sid}")
     
     async def check_rate_limit(self, client_ip: str) -> bool:
         """Check if client has exceeded rate limit"""
-        async with self._lock:
-            now = datetime.now()
-            hour_ago = now - timedelta(hours=1)
-            
-            if client_ip not in self.request_counts:
-                self.request_counts[client_ip] = []
-            
-            # Remove old requests
-            self.request_counts[client_ip] = [
-                req_time for req_time in self.request_counts[client_ip]
-                if req_time > hour_ago
-            ]
-            
-            # Check limit
-            if len(self.request_counts[client_ip]) >= RATE_LIMIT_REQUESTS:
-                return False
-            
-            # Add current request
-            self.request_counts[client_ip].append(now)
-            return True
+        now = datetime.now()
+        hour_ago = now - timedelta(hours=1)
+        
+        if client_ip not in self.request_counts:
+            self.request_counts[client_ip] = []
+        
+        # Remove old requests
+        self.request_counts[client_ip] = [
+            req_time for req_time in self.request_counts[client_ip]
+            if req_time > hour_ago
+        ]
+        
+        # Check limit
+        if len(self.request_counts[client_ip]) >= RATE_LIMIT_REQUESTS:
+            return False
+        
+        # Add current request
+        self.request_counts[client_ip].append(now)
+        return True
 
 app_state = ApplicationState()
 
@@ -255,6 +258,19 @@ def cleanup_old_files():
                 
     except Exception as e:
         logger.error(f"File cleanup error: {e}")
+
+def convert_numpy_types(obj):
+    """Convert numpy types to Python native types for JSON serialization"""
+    if hasattr(obj, 'item'):  # numpy scalar
+        return obj.item()
+    elif isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif pd.isna(obj):
+        return None
+    else:
+        return obj
 
 def cleanup_resources():
     """Cleanup resources on shutdown"""
@@ -435,62 +451,6 @@ async def general_exception_handler(request: Request, exc: Exception):
         ).dict()
     )
 
-@app.post("/upload_csv")
-async def upload_csv(file: UploadFile = File(...)):
-    """Upload a CSV file for analysis"""
-    global current_dataframe, current_filename
-    
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="File must be a CSV")
-    
-    try:
-        # Save uploaded file
-        file_id = str(uuid.uuid4())
-        filename = f"{file_id}_{file.filename}"
-        filepath = WORKSPACE_DIR / filename
-        
-        content = await file.read()
-        with open(filepath, "wb") as f:
-            f.write(content)
-        
-        # Load dataframe
-        current_dataframe = pd.read_csv(filepath)
-        current_filename = filename
-        
-        logger.info(f"Loaded CSV: {filename}, Shape: {current_dataframe.shape}")
-        
-        return {
-            "message": "CSV uploaded successfully",
-            "filename": filename,
-            "shape": current_dataframe.shape,
-            "columns": list(current_dataframe.columns),
-            "sample": current_dataframe.head(3).to_dict('records')
-        }
-        
-    except Exception as e:
-        logger.error(f"Error uploading CSV: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing CSV: {str(e)}")
-
-@app.post("/ask_question")
-async def ask_question(request: QuestionRequest):
-    """Ask a natural language question about the uploaded CSV"""
-    global current_dataframe
-    
-    if current_dataframe is None:
-        raise HTTPException(status_code=400, detail="No CSV file uploaded")
-    
-    try:
-        logger.info(f"Processing question: {request.question}")
-        
-        # Use the agent to process the question
-        result = await agent.process_question(current_dataframe, request.question)
-        
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error processing question: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing question: {str(e)}")
-
 # API Endpoints
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -658,15 +618,30 @@ async def upload_csv(request: Request, file: UploadFile = File(...)):
         null_counts = {col: int(count) for col, count in df.isnull().sum().items()}
         
         # Store in session
+        logger.info(f"Storing session data for {session_id}")
         await app_state.update_session(session_id, {
             'dataframe': df,
             'filename': safe_filename,
             'upload_time': datetime.now(),
             'original_filename': file.filename
         })
+        logger.info(f"Session data stored for {session_id}")
+        
+        # Verify session was stored
+        verify_session = await app_state.get_session(session_id)
+        logger.info(f"Session verification - has dataframe: {verify_session.get('dataframe') is not None}")
+        logger.info(f"Session verification - filename: {verify_session.get('filename')}")
         
         # Prepare response
         sample_data = df.head(3).fillna("").to_dict('records')  # Fill NaN for JSON serialization
+        
+        # Convert numpy types to Python types for JSON serialization
+        for row in sample_data:
+            for key, value in row.items():
+                if hasattr(value, 'item'):  # numpy scalar
+                    row[key] = value.item()
+                elif pd.isna(value):
+                    row[key] = None
         
         processing_time = time.time() - start_time
         logger.info(
@@ -759,6 +734,9 @@ async def ask_question(request: Request, question_request: QuestionRequest):
                 app_state.agent.process_question(df, question_request.question),
                 timeout=REQUEST_TIMEOUT
             )
+            
+            # Convert numpy types to Python types for JSON serialization
+            result = convert_numpy_types(result)
         except asyncio.TimeoutError:
             raise HTTPException(
                 status_code=status.HTTP_408_REQUEST_TIMEOUT,
