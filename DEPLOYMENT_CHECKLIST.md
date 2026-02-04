@@ -4,7 +4,8 @@
 
 - [ ] Code is committed and pushed to GitHub
 - [ ] All tests pass locally
-- [ ] Environment variables are documented
+- [ ] Environment variables are documented in .env.example
+- [ ] Local .env file is properly configured for development
 - [ ] Dependencies are up to date in requirements.txt and package.json
 - [ ] Build scripts work locally
 

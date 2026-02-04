@@ -66,19 +66,25 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
 
 ### Option 2: Development Mode (Local)
 
-1. **Install Python dependencies:**
+1. **Setup environment variables:**
+```bash
+cp .env.example .env
+# Edit .env file with your preferred settings
+```
+
+2. **Install Python dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
-2. **Install Node.js dependencies:**
+3. **Install Node.js dependencies:**
 ```bash
 cd frontend
 npm install
 cd ..
 ```
 
-3. **Start both servers:**
+4. **Start both servers:**
 ```bash
 # Windows
 start-dev.bat
@@ -87,7 +93,7 @@ start-dev.bat
 python start-dev.py
 ```
 
-4. **Access the application:**
+5. **Access the application:**
 - Frontend UI: http://localhost:8080
 - Backend API: http://localhost:8001
 

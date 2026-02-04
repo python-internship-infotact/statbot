@@ -7,6 +7,14 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available, skip loading .env file
+    pass
+
 class Config:
     """Production configuration class"""
     

@@ -11,6 +11,20 @@ import time
 import signal
 from pathlib import Path
 
+def check_env_file():
+    """Check if .env file exists and create from example if not"""
+    env_file = Path('.env')
+    env_example = Path('.env.example')
+    
+    if not env_file.exists() and env_example.exists():
+        print("📝 Creating .env file from .env.example...")
+        env_file.write_text(env_example.read_text())
+        print("✅ .env file created. You can edit it to customize settings.")
+    elif not env_file.exists():
+        print("⚠️  No .env file found. Using default environment variables.")
+    else:
+        print("✅ .env file found.")
+
 def start_backend():
     """Start the FastAPI backend server"""
     print("🚀 Starting backend server...")
@@ -41,6 +55,9 @@ def main():
     """Main function to start both servers"""
     print("🔥 Starting StatBot Pro Development Environment")
     print("=" * 50)
+    
+    # Check and setup .env file
+    check_env_file()
     
     processes = []
     

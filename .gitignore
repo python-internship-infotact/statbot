@@ -43,6 +43,7 @@ static/
 # Environment variables
 .env
 .env.local
+!.env.example
 
 # Deployment
 .vercel

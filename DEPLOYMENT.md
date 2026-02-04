@@ -7,6 +7,7 @@ This guide covers deploying StatBot Pro to Render (backend) and Vercel (frontend
 ### Prerequisites
 - GitHub repository with your code
 - Render account
+- Environment variables configured (see `.env.example` for reference)
 
 ### Steps
 
