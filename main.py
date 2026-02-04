@@ -846,9 +846,16 @@ async def delete_session(session_id: str):
 # Production server configuration
 if __name__ == "__main__":
     import uvicorn
+    import os
     
-    # Get production configuration
+    # Get port from environment variable (Render sets this)
+    port = int(os.getenv("PORT", 8001))
+    host = os.getenv("HOST", "0.0.0.0")
+    
+    # Override config for production deployment
     uvicorn_config = config.get_uvicorn_config()
+    uvicorn_config["host"] = host
+    uvicorn_config["port"] = port
     
     logger.info(f"Starting StatBot Pro server with config: {uvicorn_config}")
     logger.info(f"Environment: {config.ENVIRONMENT}")

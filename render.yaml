@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: statbot-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start.py
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: 8001
+      - key: HOST
+        value: 0.0.0.0
+      - key: CORS_ORIGINS
+        value: https://statbot-frontend.vercel.app,https://your-custom-domain.com
+    disk:
+      name: statbot-data
+      mountPath: /app/data
+      sizeGB: 1

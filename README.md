@@ -47,7 +47,24 @@ An autonomous CSV data analyst agent with a modern React frontend that generates
 
 ## 🚀 Quick Start
 
-### Option 1: Development Mode (Recommended)
+### Option 1: Production Deployment
+
+**Backend (Render)**:
+1. Fork this repository
+2. Connect to [Render](https://render.com)
+3. Create a new Web Service from your repo
+4. Set environment variables (see DEPLOYMENT.md)
+5. Deploy with `python main.py`
+
+**Frontend (Vercel)**:
+1. Connect to [Vercel](https://vercel.com)
+2. Set root directory to `frontend`
+3. Set `VITE_API_URL` to your Render backend URL
+4. Deploy automatically
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
+
+### Option 2: Development Mode (Local)
 
 1. **Install Python dependencies:**
 ```bash

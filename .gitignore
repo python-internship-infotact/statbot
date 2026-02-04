@@ -42,3 +42,12 @@ static/
 
 # Environment variables
 .env
+.env.local
+
+# Deployment
+.vercel
+.render
+node_modules/
+frontend/dist/
+frontend/.next/
+frontend/out/

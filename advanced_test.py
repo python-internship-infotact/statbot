@@ -12,17 +12,17 @@ BASE_URL = "http://localhost:8001"
 def test_self_correction():
     """Test the agent's ability to self-correct on errors"""
     print("Testing self-correction with intentionally challenging question...")
-    
+
     # This question should trigger the agent to analyze and potentially retry
     question = "Create a scatter plot showing the relationship between sales and marketing spend, and calculate the R-squared value"
-    
+
     payload = {"question": question}
     response = requests.post(
         f"{BASE_URL}/ask_question",
         headers={"Content-Type": "application/json"},
         data=json.dumps(payload)
     )
-    
+
     if response.status_code == 200:
         result = response.json()
         print("✅ Complex analysis completed successfully")
