@@ -27,5 +27,16 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    extensions: ['.js', '.ts', '.jsx', '.tsx', '.json'],
+  },
+  build: {
+    rollupOptions: {
+      external: [],
+    },
+    sourcemap: false,
+    minify: 'esbuild',
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom'],
   },
 }));

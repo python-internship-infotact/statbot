@@ -17,5 +17,10 @@
     "env": {
       "VITE_API_URL": "https://statbot-backend.onrender.com"
     }
+  },
+  "functions": {
+    "app/api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
   }
 }
